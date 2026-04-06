@@ -23,18 +23,24 @@
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────┐
-│  Windows / WSL2                             │
-│                                             │
-│  ┌──────────────┐     ┌──────────────────┐  │
-│  │  claw-code   │────▶│  vLLM server     │  │
-│  │  (CLI)       │     │  localhost:8000  │  │
-│  └──────────────┘     │  (Gemma 4 E4B)   │  │
-│                       └──────────────────┘  │
-│                                             │
-│  Agents définis dans /agents                │
-└─────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  Windows / WSL2                                              │
+│                                                              │
+│  ┌──────────┐   Anthropic API   ┌──────────┐  OpenAI API   │
+│  │   claw   │ ────────────────▶ │ LiteLLM  │ ────────────▶ │
+│  │  (CLI)   │                   │ :4000    │               │
+│  └──────────┘                   └──────────┘               │
+│                                      │                       │
+│                                      ▼                       │
+│                               ┌──────────────┐              │
+│                               │    vLLM      │              │
+│                               │    :8000     │              │
+│                               │ (Gemma 4 E4B)│              │
+│                               └──────────────┘              │
+└──────────────────────────────────────────────────────────────┘
 ```
+
+claw parle le protocole Anthropic. vLLM expose une API OpenAI-compatible. **LiteLLM** sert de proxy de traduction entre les deux.
 
 ## Prérequis
 
@@ -65,47 +71,48 @@ chmod +x scripts/setup.sh
 
 Le script installe :
 1. `uv` (gestionnaire de paquets Python ultra-rapide)
-2. Un environnement virtuel Python avec `vLLM`
+2. Un environnement virtuel Python avec `vLLM` et `LiteLLM`
 3. Rust via `rustup`, clone et compile `claw-code` depuis les sources, puis crée un lien `claw` dans `~/.local/bin`
 
 ## Lancer le modèle
 
+Il faut **3 terminaux** :
+
+**Terminal 1 — vLLM** (inférence GPU) :
 ```bash
 ./scripts/start_model.sh
+# vérifier : curl http://localhost:8000/v1/models
 ```
 
-Le serveur vLLM démarre sur `http://localhost:8000` et expose une API compatible OpenAI.
-
-Pour vérifier que le serveur est prêt :
-
+**Terminal 2 — LiteLLM** (proxy Anthropic → OpenAI) :
 ```bash
-curl http://localhost:8000/v1/models
+./scripts/start_proxy.sh
+# vérifier : curl http://localhost:4000/health
 ```
 
-## Utilisation
-
-Une fois le serveur vLLM lancé, ouvrir un autre terminal et lancer claw :
-
+**Terminal 3 — claw** :
 ```bash
-claw prompt "bonjour"
-# ou en mode interactif
+source ./scripts/env.sh
 claw
 ```
 
-claw-code est configuré (via `.clawcode` ou variable d'environnement) pour pointer vers le serveur local :
-
+`env.sh` positionne deux variables :
 ```bash
-export OPENAI_API_BASE=http://localhost:8000/v1
-export OPENAI_API_KEY=local  # n'importe quelle valeur, vLLM n'authentifie pas en local
+ANTHROPIC_BASE_URL=http://localhost:4000   # pointe sur LiteLLM
+ANTHROPIC_API_KEY=local                    # valeur quelconque, non vérifiée
 ```
 
 ## Structure du projet
 
 ```
 seraphims/
-├── agents/          # Définitions des agents autonomes
+├── agents/                  # Définitions des agents autonomes
+├── config/
+│   └── litellm.yaml         # Config du proxy LiteLLM
 ├── scripts/
-│   ├── setup.sh     # Installation complète
-│   └── start_model.sh  # Lancement du serveur vLLM
+│   ├── setup.sh             # Installation complète
+│   ├── start_model.sh       # Lancement de vLLM (port 8000)
+│   ├── start_proxy.sh       # Lancement de LiteLLM (port 4000)
+│   └── env.sh               # Variables d'env pour claw
 └── README.md
 ```

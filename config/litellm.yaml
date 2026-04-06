@@ -1,0 +1,16 @@
+model_list:
+  - model_name: claude-3-5-sonnet-20241022   # nom que claw demande par défaut
+    litellm_params:
+      model: openai/gemma-4                  # préfixe openai/ = endpoint compatible OpenAI
+      api_base: http://localhost:8000/v1
+      api_key: local
+
+  - model_name: claude-sonnet-4-5            # alias alternatif
+    litellm_params:
+      model: openai/gemma-4
+      api_base: http://localhost:8000/v1
+      api_key: local
+
+litellm_settings:
+  drop_params: true          # ignore les paramètres non supportés par Gemma
+  set_verbose: false

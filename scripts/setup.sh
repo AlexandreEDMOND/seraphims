@@ -20,15 +20,17 @@ fi
 # ─── 2. vLLM via uv ──────────────────────────────────────────────────────────
 VENV_DIR="$REPO_ROOT/.venv"
 
-echo "[2/3] Création de l'environnement virtuel et installation de vLLM..."
+echo "[2/3] Création de l'environnement virtuel et installation de vLLM + LiteLLM..."
 uv venv "$VENV_DIR" --python 3.11
 
-# vLLM avec support CUDA (ajuster l'extra si besoin : cpu / rocm / xpu)
+# vLLM avec support CUDA + LiteLLM comme proxy Anthropic→OpenAI
 uv pip install --python "$VENV_DIR/bin/python" \
   "vllm>=0.4.0" \
-  "huggingface_hub"
+  "huggingface_hub" \
+  "litellm[proxy]"
 
 echo "      vLLM installé : $("$VENV_DIR/bin/python" -c 'import vllm; print(vllm.__version__)')"
+echo "      LiteLLM installé : $("$VENV_DIR/bin/python" -c 'import litellm; print(litellm.__version__)')"
 
 # ─── 3. claw-code (build depuis les sources) ─────────────────────────────────
 CLAW_DIR="$REPO_ROOT/claw-code"
@@ -73,5 +75,6 @@ echo ""
 echo "=== Installation terminée ==="
 echo ""
 echo "Prochaines étapes :"
-echo "  1. Lancer le modèle  : ./scripts/start_model.sh"
-echo "  2. Ouvrir claw-code  : claw"
+echo "  1. Lancer vLLM         : ./scripts/start_model.sh"
+echo "  2. Lancer le proxy     : ./scripts/start_proxy.sh"
+echo "  3. Ouvrir claw         : source ./scripts/env.sh && claw"
