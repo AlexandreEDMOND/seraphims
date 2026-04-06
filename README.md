@@ -15,7 +15,7 @@
 
 **Seraphims** est un ensemble d'agents IA autonomes conçus pour exécuter des tâches répétitives et complexes sans intervention humaine. Le projet tourne entièrement en local :
 
-- **CLI** : [claw-code](https://github.com/ultraworkers/claw-code) — fork de Claude Code adapté pour dialoguer avec des modèles compatibles OpenAI API
+- **CLI** : [claw-code](https://github.com/ultraworkers/claw-code) — implémentation Rust open-source du harness d'agent `claw`, compatible avec des modèles locaux
 - **Modèle** : Gemma 4 (E4B Instruct) — modèle open-source de Google, servi localement
 - **Inférence** : [vLLM](https://github.com/vllm-project/vllm) — serveur d'inférence haute performance, exposant une API compatible OpenAI
 - **Environnement** : WSL2 (Windows Subsystem for Linux)
@@ -42,7 +42,7 @@
 - GPU Nvidia avec drivers CUDA installés (recommandé pour vLLM)
 - Python 3.10+ dans WSL
 - [uv](https://github.com/astral-sh/uv) (installé automatiquement par le script)
-- Node.js 18+ (pour claw-code)
+- Rust toolchain (installée automatiquement par le script via rustup)
 - Le modèle Gemma 4 E4B Instruct téléchargé dans `~/models/gemma-4-E4B-it`
 
 ### Vérifier CUDA dans WSL
@@ -66,7 +66,7 @@ chmod +x scripts/setup.sh
 Le script installe :
 1. `uv` (gestionnaire de paquets Python ultra-rapide)
 2. Un environnement virtuel Python avec `vLLM`
-3. `claw-code` via npm
+3. Rust via `rustup`, clone et compile `claw-code` depuis les sources, puis crée un lien `claw` dans `~/.local/bin`
 
 ## Lancer le modèle
 
@@ -84,10 +84,12 @@ curl http://localhost:8000/v1/models
 
 ## Utilisation
 
-Une fois le serveur vLLM lancé, ouvrir un autre terminal et lancer claw-code :
+Une fois le serveur vLLM lancé, ouvrir un autre terminal et lancer claw :
 
 ```bash
-claw-code
+claw prompt "bonjour"
+# ou en mode interactif
+claw
 ```
 
 claw-code est configuré (via `.clawcode` ou variable d'environnement) pour pointer vers le serveur local :

@@ -30,22 +30,48 @@ uv pip install --python "$VENV_DIR/bin/python" \
 
 echo "      vLLM installé : $("$VENV_DIR/bin/python" -c 'import vllm; print(vllm.__version__)')"
 
-# ─── 3. claw-code via npm ────────────────────────────────────────────────────
-echo "[3/3] Installation de claw-code..."
-if ! command -v node &>/dev/null; then
-  echo "      Node.js introuvable. Installation via nvm..."
-  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-  export NVM_DIR="$HOME/.nvm"
-  # shellcheck source=/dev/null
-  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-  nvm install --lts
+# ─── 3. claw-code (build depuis les sources) ─────────────────────────────────
+CLAW_DIR="$REPO_ROOT/claw-code"
+
+echo "[3/3] Installation de claw-code (Rust)..."
+
+# 3a. Rust / cargo
+if ! command -v cargo &>/dev/null; then
+  echo "      Rust introuvable. Installation via rustup..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path
+  export PATH="$HOME/.cargo/bin:$PATH"
+fi
+echo "      cargo : $(cargo --version)"
+
+# 3b. Cloner le repo si besoin
+if [ ! -d "$CLAW_DIR" ]; then
+  git clone https://github.com/ultraworkers/claw-code.git "$CLAW_DIR"
+else
+  echo "      claw-code déjà cloné, mise à jour..."
+  git -C "$CLAW_DIR" pull --ff-only
 fi
 
-npm install -g claw-code
+# 3c. Compiler le workspace Rust
+echo "      Compilation en cours (peut prendre quelques minutes)..."
+cargo build --release --manifest-path "$CLAW_DIR/rust/Cargo.toml" --workspace
+
+# 3d. Lien symbolique dans ~/.local/bin
+CLAW_BIN="$CLAW_DIR/rust/target/release/claw"
+mkdir -p "$HOME/.local/bin"
+ln -sf "$CLAW_BIN" "$HOME/.local/bin/claw"
+
+# S'assurer que ~/.local/bin est dans le PATH
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+  echo ""
+  echo "  Ajoute cette ligne à ton ~/.bashrc ou ~/.zshrc pour rendre 'claw' accessible :"
+  echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+fi
+
+echo "      claw installé : $("$CLAW_BIN" --version 2>/dev/null || echo 'ok')"
 
 echo ""
 echo "=== Installation terminée ==="
 echo ""
 echo "Prochaines étapes :"
 echo "  1. Lancer le modèle  : ./scripts/start_model.sh"
-echo "  2. Ouvrir claw-code  : claw-code"
+echo "  2. Ouvrir claw-code  : claw"
