@@ -40,6 +40,15 @@ echo ""
 echo "Appuie sur Ctrl+C pour arrêter le serveur."
 echo ""
 
+# ─── Fix WSL2 : vm.max_map_count ─────────────────────────────────────────────
+# vLLM mappe le fichier safetensors (~16 Go) en mémoire virtuelle.
+# WSL2 a par défaut vm.max_map_count=65530, trop bas pour un tel fichier.
+CURRENT_MMC=$(cat /proc/sys/vm/max_map_count)
+if [ "$CURRENT_MMC" -lt 1048576 ]; then
+  echo "  [fix WSL2] vm.max_map_count=$CURRENT_MMC → 1048576 (sudo requis)"
+  sudo sysctl -w vm.max_map_count=1048576
+fi
+
 # ─── Lancement vLLM ──────────────────────────────────────────────────────────
 "$VENV_DIR/bin/python" -m vllm.entrypoints.openai.api_server \
   --model "$MODEL_PATH" \
