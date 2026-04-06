@@ -29,7 +29,14 @@ uv pip install --python "$VENV_DIR/bin/python" \
   "huggingface_hub" \
   "litellm[proxy]"
 
+# Gemma 4 requiert une version de transformers pas encore publiée sur PyPI :
+# on installe depuis les sources git pour avoir le support de l'architecture gemma4.
+echo "      Mise à jour de transformers depuis les sources (requis pour Gemma 4)..."
+uv pip install --python "$VENV_DIR/bin/python" \
+  "git+https://github.com/huggingface/transformers.git"
+
 echo "      vLLM installé : $("$VENV_DIR/bin/python" -c 'import vllm; print(vllm.__version__)')"
+echo "      transformers : $("$VENV_DIR/bin/python" -c 'import transformers; print(transformers.__version__)')"
 echo "      LiteLLM installé : $("$VENV_DIR/bin/python" -c 'import litellm; print(litellm.__version__)')"
 
 # ─── 3. claw-code (build depuis les sources) ─────────────────────────────────
