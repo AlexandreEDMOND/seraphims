@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seraphims — Claude Code</title>
+    <style>
+      :root {
+        color-scheme: light;
+        font-family: system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #f5f6fa;
+        color: #1a1d24;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      header {
+        width: 100%;
+        background: #e8eaf0;
+        border-bottom: 1px solid #d0d3dc;
+        padding: 1.2rem 0;
+        text-align: center;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+      header p {
+        margin: 0.25rem 0 0;
+        color: #6b7080;
+        font-size: 0.85rem;
+      }
+      main {
+        width: min(780px, 92vw);
+        padding: 2rem 0 4rem;
+      }
+      h1 {
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      textarea {
+        width: 100%;
+        min-height: 110px;
+        padding: 0.9rem 1rem;
+        border-radius: 10px;
+        border: 1px solid #d0d3dc;
+        background: #ffffff;
+        color: inherit;
+        font: inherit;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      textarea:focus {
+        outline: none;
+        border-color: #5b6bdf;
+      }
+      button {
+        margin-top: 0.8rem;
+        padding: 0.7rem 1.4rem;
+        border-radius: 10px;
+        border: 0;
+        background: #5b6bdf;
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.55;
+        cursor: wait;
+      }
+      #answer {
+        margin-top: 1.6rem;
+        padding: 1rem 1.2rem;
+        background: #ffffff;
+        border: 1px solid #d0d3dc;
+        border-radius: 10px;
+        white-space: pre-wrap;
+        min-height: 3rem;
+      }
+      .workers {
+        margin-top: 1rem;
+        display: grid;
+        gap: 0.6rem;
+      }
+      .worker {
+        padding: 0.7rem 0.9rem;
+        background: #ffffff;
+        border: 1px solid #d0d3dc;
+        border-left: 3px solid #5b6bdf;
+        border-radius: 8px;
+        font-size: 0.9rem;
+      }
+      .worker .head {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        font-weight: 600;
+      }
+      .worker .task {
+        margin: 0.3rem 0 0.4rem;
+        color: #5a5f6e;
+        white-space: pre-wrap;
+      }
+      .worker a {
+        color: #1a8a3f;
+        text-decoration: none;
+      }
+      .worker a:hover {
+        text-decoration: underline;
+      }
+      .status-pr_created { border-left-color: #2da653; }
+      .status-no_changes { border-left-color: #b8960f; }
+      .status-error,
+      .status-pushed_pr_failed { border-left-color: #d93025; }
+      .err {
+        color: #d93025;
+      }
+      .muted {
+        color: #6b7080;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Seraphims</h1>
+      <p>Interface web pour Claude Code</p>
+    </header>
+    <main>
+      <p class="muted">
+        Pose une question — elle est envoyée au CLI <code>claude</code> local
+        (abonnement, pas d'API).
+      </p>
+      <textarea
+        id="q"
+        placeholder="Ta question pour Claude Code…"
+      ></textarea>
+      <div>
+        <button id="send">Envoyer</button>
+      </div>
+      <div id="answer" class="muted">La réponse s'affichera ici.</div>
+      <div id="workers" class="workers"></div>
+    </main>
+
+    <script>
+      const btn = document.getElementById("send");
+      const q = document.getElementById("q");
+      const out = document.getElementById("answer");
+      const workersEl = document.getElementById("workers");
+
+      function renderWorkers(workers) {
+        workersEl.innerHTML = "";
+        if (!workers || workers.length === 0) return;
+        for (const w of workers) {
+          const card = document.createElement("div");
+          card.className = "worker status-" + (w.status || "unknown");
+          const prLink = w.prUrl
+            ? `<a href="${w.prUrl}" target="_blank">${w.prUrl}</a>`
+            : "";
+          const errLine = w.error
+            ? `<div style="color:#ff8d8d">${escapeHtml(w.error)}</div>`
+            : "";
+          const usage = w.usage
+            ? `<div class="muted">tokens · in ${w.usage.input} / out ${w.usage.output} / cache ${w.usage.cacheRead}</div>`
+            : "";
+          card.innerHTML = `
+            <div class="head">
+              <span>${w.agent} · ${w.status}</span>
+              <span>${w.branch || ""}</span>
+            </div>
+            <div class="task">${escapeHtml(w.task || "")}</div>
+            ${prLink}
+            ${errLine}
+            ${usage}
+          `;
+          workersEl.appendChild(card);
+        }
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      async function ask() {
+        const question = q.value.trim();
+        if (!question) return;
+        btn.disabled = true;
+        out.className = "muted";
+        out.textContent = "Orchestrateur et agents au travail… (peut prendre plusieurs minutes)";
+        workersEl.innerHTML = "";
+        try {
+          const r = await fetch("/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question }),
+          });
+          const data = await r.json();
+          if (!r.ok) {
+            out.className = "err";
+            out.textContent = "Erreur : " + (data.error || r.statusText);
+          } else {
+            out.className = "";
+            out.textContent = data.answer || "(réponse vide)";
+            renderWorkers(data.workers);
+          }
+        } catch (e) {
+          out.className = "err";
+          out.textContent = "Erreur réseau : " + e.message;
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      btn.addEventListener("click", ask);
+      q.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") ask();
+      });
+    </script>
+  </body>
+</html>
